@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, BarChart3, FileBarChart2, ShieldCheck, Settings, Filter, Download, Bell, CheckCircle2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from "recharts";
 import libroRaw from "../LibroK1.txt?raw";
+import libroCsvRaw from "../Libro1.csv?raw";
 
 const kpiMeta = {
   errores: 50,
@@ -51,28 +52,56 @@ const eventos = [
   { fecha: "2025-07-27", area: "Auditoría", usuario: "C. Núñez", accion: "Revisó bitácora de accesos" },
 ];
 
-// Cargar inventario desde LibroK1.txt incluido en el repo (se parsea en tiempo de build)
+// Cargar inventario desde Libro1.csv (preferido) o LibroK1.txt
 const PARTS = (() => {
   const rows = [];
   try {
-    if (!libroRaw) return [];
-
     // helper: eliminar BOM, replacement chars y caracteres que no forman parte
     // del alfabeto latin básico; colapsar espacios. Esto evita símbolos "cuadro".
     const sanitize = (s = "") => {
       return String(s)
-        // quitar BOM y reemplazo
         .replace(/^\uFEFF|\uFFFE/g, '')
         .replace(/\uFFFD/g, '')
-        // quitar cualquier caracter fuera del rango latin básico (tab + U+0020..U+024F)
         .replace(/[^\u0009\u0020-\u024F]/g, '')
-        // colapsar espacios y tabs
         .replace(/[\t\n\r]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     };
 
-    const raw = libroRaw.replace(/\r\u0000/g, '\r').replace(/\n\u0000/g, '\n');
+    const parseCSV = (rawCsv) => {
+      const out = [];
+      if (!rawCsv) return out;
+      const lines = rawCsv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      // no header expected in provided CSV; if header present and contains non alnum, skip
+      for (const line of lines) {
+        // split respecting quotes
+        const cols = line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.trim());
+        if (cols.length < 4) continue;
+        // remove surrounding quotes
+        const cleaned = cols.map(c => c.replace(/^\"|\"$/g, ''));
+        const numero = sanitize(cleaned[0] || '');
+        const proyecto = sanitize(cleaned[1] || '');
+        const descripcion = sanitize(cleaned.slice(2, cleaned.length - 2 + 1).join(' ') || cleaned[2] || '');
+        const precioRaw = (cleaned[cleaned.length - 2] || '').replace(/\s/g, '');
+        const responsable = sanitize(cleaned[cleaned.length - 1] || '');
+        const parsedPrice = (() => {
+          if (!precioRaw) return null;
+          const cleanedP = precioRaw.replace(/[^0-9,.-]/g, '').replace(/,/g, '.');
+          const n = parseFloat(cleanedP);
+          return Number.isFinite(n) ? n : null;
+        })();
+        out.push({ numero, proyecto, descripcion, precio: parsedPrice, responsable });
+      }
+      return out;
+    };
+
+    // prefer CSV if available
+    if (typeof libroCsvRaw === 'string' && libroCsvRaw.trim().length > 0) {
+      const parsed = parseCSV(libroCsvRaw);
+      return parsed;
+    }
+
+    const raw = libroRaw ? libroRaw.replace(/\r\u0000/g, '\r').replace(/\n\u0000/g, '\n') : '';
     // dividir en líneas y limpiar
     const lines = raw.split(/\r?\n/).map(l => sanitize(l)).filter(Boolean);
     // Buscar la línea de encabezado y empezar después
