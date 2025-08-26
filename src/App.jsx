@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, BarChart3, FileBarChart2, ShieldCheck, Settings, Filter, Download, Bell, CheckCircle2 } from "lucide-react";
+import InventarioPage from './pages/Inventario'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from "recharts";
 import libroRaw from "../LibroK1.txt?raw";
 import libroCsvRaw from "../Libro1.csv?raw";
@@ -240,7 +241,7 @@ function InventoryCarousel({ items }){
   )
 }
 
-function InventorySection(){
+function InventorySection({ parts = PARTS }){
   const [mode,setMode] = React.useState('table')
   const [query, setQuery] = React.useState('')
   const [projectFilter, setProjectFilter] = React.useState('')
@@ -249,19 +250,19 @@ function InventorySection(){
   // calcular totales sobre el conjunto filtrado
   const filtered = React.useMemo(()=>{
     const q = query.trim().toLowerCase();
-    return PARTS.filter(p=>{
-      if (projectFilter && p.proyecto.toLowerCase() !== projectFilter.toLowerCase()) return false;
-      if (responsibleFilter && p.responsable.toLowerCase() !== responsibleFilter.toLowerCase()) return false;
+    return (parts || []).filter(p=>{
+      if (projectFilter && (p.proyecto||'').toLowerCase() !== projectFilter.toLowerCase()) return false;
+      if (responsibleFilter && (p.responsable||'').toLowerCase() !== responsibleFilter.toLowerCase()) return false;
       if (!q) return true;
       return [p.numero, p.descripcion, p.proyecto, p.responsable].some(f=> (f||'').toString().toLowerCase().includes(q));
     })
-  }, [query, projectFilter, responsibleFilter]);
+  }, [query, projectFilter, responsibleFilter, parts]);
 
   const total = filtered.reduce((a,p)=> a + (p.precio||0),0)
 
   // valores únicos para selects
-  const projects = Array.from(new Set(PARTS.map(p=>p.proyecto))).filter(Boolean);
-  const responsables = Array.from(new Set(PARTS.map(p=>p.responsable))).filter(Boolean);
+  const projects = Array.from(new Set((parts||[]).map(p=>p.proyecto))).filter(Boolean);
+  const responsables = Array.from(new Set((parts||[]).map(p=>p.responsable))).filter(Boolean);
 
   return (
     <div>
@@ -287,8 +288,8 @@ function InventorySection(){
         <div className="flex items-center gap-2">
           <div className="text-sm text-slate-500">{filtered.length} items • Total USD {total.toFixed(2)}</div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={()=>setMode('table')} className={mode==='table'? 'bg-brand-700 text-white' : 'border'}>Tabla</Button>
-            <Button size="sm" onClick={()=>setMode('carousel')} className={mode==='carousel'? 'bg-brand-700 text-white' : 'border'}>Slide</Button>
+            <Button size="sm" onClick={()=>setMode('table')} className={mode==='table'? 'bg-primary-500 text-white' : 'border'}>Tabla</Button>
+            <Button size="sm" onClick={()=>setMode('carousel')} className={mode==='carousel'? 'bg-primary-500 text-white' : 'border'}>Slide</Button>
           </div>
         </div>
       </div>
@@ -300,14 +301,14 @@ function InventorySection(){
 function KpiCard({ title, meta, value }) {
   const cumplido = value >= meta;
   return (
-    <Card className="rounded-2xl shadow-sm">
+    <Card className="rounded-2xl shadow-sm border-l-4 border-accent-300">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-slate-500">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex items-end justify-between gap-4">
         <div className="text-3xl font-semibold">{value}%</div>
         <div className="space-y-1 text-right">
-          <Badge variant={cumplido ? "default" : "secondary"} className="rounded-full">
+          <Badge variant={cumplido ? "default" : "secondary"} className="rounded-full bg-accent-300 text-white">
             Meta {meta}%
           </Badge>
           <div className={"text-xs " + (cumplido ? "text-emerald-600" : "text-amber-600")}>
@@ -322,11 +323,18 @@ function KpiCard({ title, meta, value }) {
 export default function App() {
   const [area, setArea] = React.useState("");
   const [proy, setProy] = React.useState("");
+  const [route, setRoute] = React.useState(() => location.hash || '#/')
+
+  React.useEffect(()=>{
+    const onHash = ()=> setRoute(location.hash || '#/')
+    window.addEventListener('hashchange', onHash)
+    return ()=> window.removeEventListener('hashchange', onHash)
+  },[])
 
   return (
     <div className="min-h-screen bg-slate-50">
   {/* Header */}
-  <header className="sticky top-0 z-40 bg-brand-50 backdrop-blur border-b">
+  <header className="sticky top-0 z-40 bg-gradient-to-r from-accent-300 via-primary-100 to-primary-50 backdrop-blur border-b border-primary-100">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="https://www.directorioautomotriz.com.mx/media/company/logo/2423/e1da90b1617d502a77aaa67631fd7870.jpg" alt="Logo" className="h-9 w-9 rounded-2xl object-cover" />
@@ -337,7 +345,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="rounded-full"><Bell className="h-5 w-5" /></Button>
-            <Button size="sm" className="rounded-full bg-brand-600 text-white">Exportar <Download className="ml-2 h-4 w-4"/></Button>
+            <Button size="sm" className="rounded-full bg-primary-500 text-white hover:bg-primary-700">Exportar <Download className="ml-2 h-4 w-4"/></Button>
           </div>
         </div>
       </header>
@@ -346,16 +354,29 @@ export default function App() {
         {/* Sidebar */}
         <aside className="col-span-12 lg:col-span-3 xl:col-span-2">
           <nav className="space-y-2">
-            <Button variant="secondary" className="w-full justify-start rounded-2xl bg-brand-50 text-brand-700"><LayoutDashboard className="mr-2 h-4 w-4"/>Dashboard</Button>
+            <Button variant="secondary" className="w-full justify-start rounded-2xl bg-primary-50 text-primary-700" onClick={()=> { location.hash = '#/'; }}><LayoutDashboard className="mr-2 h-4 w-4"/>Dashboard</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><BarChart3 className="mr-2 h-4 w-4"/>Reportes</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><FileBarChart2 className="mr-2 h-4 w-4"/>Trazabilidad</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><ShieldCheck className="mr-2 h-4 w-4"/>Seguridad</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><Settings className="mr-2 h-4 w-4"/>Configuración</Button>
+            <Button variant="ghost" className="w-full justify-start rounded-2xl" onClick={()=> { location.hash = '#/inventario'; }}><FileBarChart2 className="mr-2 h-4 w-4"/>Inventario</Button>
           </nav>
+
+          {/* Inventario rápido debajo de Dashboard */}
+          <div className="mt-4">
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Inventario (rápido)</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <div className="h-56 overflow-auto p-3">
+                  <InventorySection parts={PARTS} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           <Separator className="my-6" />
 
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl border border-primary-50">
             <CardHeader className="pb-2"><CardTitle className="text-sm">Checklist de preparación</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               {[
@@ -375,6 +396,10 @@ export default function App() {
 
         {/* Main */}
         <main className="col-span-12 lg:col-span-9 xl:col-span-10 space-y-6">
+          {route === '#/inventario' ? (
+            <InventarioPage />
+          ) : (
+          <>
           {/* Filtros */}
           <Card className="rounded-2xl">
             <CardHeader className="pb-2"><CardTitle className="text-base">Filtros</CardTitle></CardHeader>
@@ -489,7 +514,9 @@ export default function App() {
               </Card>
             </TabsContent>
             
-          </Tabs>
+            </Tabs>
+          </>
+          )}
         </main>
       </div>
 
@@ -500,3 +527,6 @@ export default function App() {
     </div>
   );
 }
+
+// Export for tests
+export { InventorySection };
