@@ -57,11 +57,18 @@ const PARTS = (() => {
   try {
     if (!libroRaw) return [];
 
-    // helper: eliminar BOM y caracteres de control molestos
+    // helper: eliminar BOM, replacement chars y caracteres que no forman parte
+    // del alfabeto latin básico; colapsar espacios. Esto evita símbolos "cuadro".
     const sanitize = (s = "") => {
       return String(s)
-        .replace(/^\uFEFF|^\uFFFE/, '') // BOM
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+        // quitar BOM y reemplazo
+        .replace(/^\uFEFF|\uFFFE/g, '')
+        .replace(/\uFFFD/g, '')
+        // quitar cualquier caracter fuera del rango latin básico (tab + U+0020..U+024F)
+        .replace(/[^\u0009\u0020-\u024F]/g, '')
+        // colapsar espacios y tabs
+        .replace(/[\t\n\r]+/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
     };
 
