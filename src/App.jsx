@@ -56,29 +56,48 @@ const PARTS = (() => {
   const rows = [];
   try {
     if (!libroRaw) return [];
-    const lines = libroRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+    // helper: eliminar BOM y caracteres de control molestos
+    const sanitize = (s = "") => {
+      return String(s)
+        .replace(/^\uFEFF|^\uFFFE/, '') // BOM
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+        .trim();
+    };
+
+    const raw = libroRaw.replace(/\r\u0000/g, '\r').replace(/\n\u0000/g, '\n');
+    // dividir en líneas y limpiar
+    const lines = raw.split(/\r?\n/).map(l => sanitize(l)).filter(Boolean);
     // Buscar la línea de encabezado y empezar después
     let start = 0;
     if (lines[0] && /NUMERO\s+DE\s+PARTE/i.test(lines[0])) start = 1;
+
     for (let i = start; i < lines.length; i++) {
-      const cols = lines[i].split(/\t+/).map(c => c.trim());
-      if (cols.length < 4) continue;
-      // Algunas líneas pueden tener el precio separado por espacios; tomar las últimas columnas
-      const numero = cols[0] || "";
-      const proyecto = cols[1] || "";
-      const responsable = cols[cols.length - 1] || "";
-      const precioRaw = cols[cols.length - 2] || "";
-      const descripcion = cols.slice(2, cols.length - 2).join(" ") || "";
+      // Normalizar tabs múltiples y separar
+      const parts = lines[i].split(/\t+/).map(s => sanitize(s));
+      if (parts.length < 4) {
+        // intentar separar por múltiples espacios como fallback
+        const alt = lines[i].split(/\s{2,}/).map(s => sanitize(s));
+        if (alt.length >= 4) parts.splice(0, parts.length, ...alt);
+      }
+      if (parts.length < 4) continue;
+
+      const numero = parts[0] || "";
+      const proyecto = parts[1] || "";
+      const responsable = parts[parts.length - 1] || "";
+      const precioRaw = parts[parts.length - 2] || "";
+      const descripcion = parts.slice(2, parts.length - 2).join(' ') || "";
+
       const parsedPrice = (() => {
         if (!precioRaw) return null;
         const cleaned = precioRaw.replace(/[^0-9,.-]/g, '').replace(/,/g, '.');
         const n = parseFloat(cleaned);
         return Number.isFinite(n) ? n : null;
       })();
-      rows.push({ numero, proyecto, descripcion: descripcion.replace(/^"|"$/g, ''), precio: parsedPrice, responsable });
+
+      rows.push({ numero, proyecto, descripcion: descripcion.replace(/^\"|\"$/g, ''), precio: parsedPrice, responsable });
     }
   } catch (e) {
-    // en caso de error, fallback a array vacío
     console.error('Error parsing LibroK1.txt', e);
   }
   return rows;
