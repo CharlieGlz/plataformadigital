@@ -163,15 +163,21 @@ function InventoryTable({ items }){
             </tr>
           </thead>
           <tbody>
-            {pageItems.map((p,i)=> (
-              <tr key={start + i} className={(start + i)%2===0? 'bg-white' : 'bg-slate-50'}>
-                <td className="px-4 py-3 font-semibold text-sm">{p.numero}</td>
-                <td className="px-4 py-3 text-sm">{p.proyecto}</td>
-                <td className="px-4 py-3 text-sm">{p.descripcion}</td>
-                <td className="px-4 py-3 text-sm text-right">{p.precio==null? '—' : `$${p.precio.toFixed(2)}`}</td>
-                <td className="px-4 py-3 text-sm">{p.responsable}</td>
+            {pageItems.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">No hay registros</td>
               </tr>
-            ))}
+            ) : (
+              pageItems.map((p,i)=> (
+                <tr key={start + i} className={(start + i)%2===0? 'bg-white' : 'bg-slate-50'}>
+                  <td className="px-4 py-3 font-semibold text-sm">{p.numero}</td>
+                  <td className="px-4 py-3 text-sm">{p.proyecto}</td>
+                  <td className="px-4 py-3 text-sm">{p.descripcion}</td>
+                  <td className="px-4 py-3 text-sm text-right">{p.precio==null? '—' : `$${p.precio.toFixed(2)}`}</td>
+                  <td className="px-4 py-3 text-sm">{p.responsable}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -199,9 +205,20 @@ function InventoryTable({ items }){
 }
 
 function InventoryCarousel({ items }){
+  const len = (items && items.length) || 0;
   const [idx,setIdx] = React.useState(0)
-  const next = ()=> setIdx(i=> (i+1)%items.length)
-  const prev = ()=> setIdx(i=> (i-1+items.length)%items.length)
+
+  React.useEffect(()=>{
+    if (idx >= len) setIdx(Math.max(0, len - 1));
+  }, [len]);
+
+  const next = ()=> { if (len === 0) return; setIdx(i=> (i+1)%len) }
+  const prev = ()=> { if (len === 0) return; setIdx(i=> (i-1+len)%len) }
+
+  if (len === 0) {
+    return <div className="p-4 rounded-lg bg-white text-sm text-slate-500">No hay piezas para mostrar</div>;
+  }
+
   const p = items[idx]
   return (
     <div>
