@@ -11,6 +11,7 @@ import InventarioPage from './pages/Inventario'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from "recharts";
 import libroRaw from "../LibroK1.txt?raw";
 import libroCsvRaw from "../Libro1.csv?raw";
+import tablaRaw from "../tabla.csv?raw";
 
 const kpiMeta = {
   errores: 50,
@@ -96,7 +97,13 @@ const PARTS = (() => {
       return out;
     };
 
-    // prefer CSV if available
+    // prefer `tabla.csv` if present (user-provided quick table)
+    if (typeof tablaRaw === 'string' && tablaRaw.trim().length > 0) {
+      const parsed = parseCSV(tablaRaw);
+      return parsed;
+    }
+
+    // otherwise prefer Libro1.csv if available
     if (typeof libroCsvRaw === 'string' && libroCsvRaw.trim().length > 0) {
       const parsed = parseCSV(libroCsvRaw);
       return parsed;
@@ -152,52 +159,53 @@ function InventoryTable({ items }){
 
   return (
     <div>
-      <div className="overflow-auto rounded-lg border">
-        <table className="w-full table-auto border-collapse">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="text-left px-4 py-3 text-sm font-semibold">NÚMERO DE PARTE</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold">PROYECTO</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold">DESCRIPCIÓN</th>
-              <th className="text-right px-4 py-3 text-sm font-semibold">PRECIO</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold">RESPONSABLE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageItems.length === 0 ? (
+      <div className="rounded-lg border bg-white shadow-sm">
+        <div className="overflow-auto max-h-[56vh]">
+          <table className="w-full table-auto border-collapse">
+            <thead className="bg-slate-50 sticky top-0 z-10">
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">No hay registros</td>
+                <th className="text-left px-4 py-3 text-sm font-semibold">NÚMERO DE PARTE</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold">PROYECTO</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold">DESCRIPCIÓN</th>
+                <th className="text-right px-4 py-3 text-sm font-semibold">PRECIO</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold">RESPONSABLE</th>
               </tr>
-            ) : (
-              pageItems.map((p,i)=> (
-                <tr key={start + i} className={(start + i)%2===0? 'bg-white' : 'bg-slate-50'}>
-                  <td className="px-4 py-3 font-semibold text-sm">{p.numero}</td>
-                  <td className="px-4 py-3 text-sm">{p.proyecto}</td>
-                  <td className="px-4 py-3 text-sm">{p.descripcion}</td>
-                  <td className="px-4 py-3 text-sm text-right">{p.precio==null? '—' : `$${p.precio.toFixed(2)}`}</td>
-                  <td className="px-4 py-3 text-sm">{p.responsable}</td>
+            </thead>
+            <tbody>
+              {pageItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">No hay registros</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center justify-between mt-3 text-sm">
-        <div className="text-slate-600">Mostrando {Math.min(total, start+1)} - {Math.min(total, start + pageSize)} de {total} registros</div>
-        <div className="flex items-center gap-2">
-          <div>
-            <label className="text-xs text-slate-500 mr-2">Filas:</label>
-            <select value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(0); }} className="rounded-md border px-2 py-1">
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button size="sm" onClick={()=>setPage(p=> Math.max(0, p-1))} disabled={page===0}>Anterior</Button>
-            <div className="px-3">{page+1} / {totalPages}</div>
-            <Button size="sm" onClick={()=>setPage(p=> Math.min(totalPages-1, p+1))} disabled={page>=totalPages-1}>Siguiente</Button>
+              ) : (
+                pageItems.map((p,i)=> (
+                  <tr key={start + i} className={(start + i)%2===0? 'bg-white hover:bg-slate-50' : 'bg-slate-50 hover:bg-slate-100'}>
+                    <td className="px-4 py-3 font-semibold text-sm">{p.numero}</td>
+                    <td className="px-4 py-3 text-sm">{p.proyecto}</td>
+                    <td className="px-4 py-3 text-sm">{p.descripcion}</td>
+                    <td className="px-4 py-3 text-sm text-right">{p.precio==null? '—' : `$${p.precio.toFixed(2)}`}</td>
+                    <td className="px-4 py-3 text-sm">{p.responsable}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between p-3 text-sm">
+          <div className="text-slate-600">Mostrando {total === 0 ? 0 : Math.min(total, start+1)} - {Math.min(total, start + pageSize)} de {total} registros</div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-500">Filas:</label>
+              <select value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(0); }} className="rounded-md border px-2 py-1">
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={()=>setPage(p=> Math.max(0, p-1))} disabled={page===0}>Anterior</Button>
+              <div className="px-2">{page+1} / {totalPages}</div>
+              <Button size="sm" onClick={()=>setPage(p=> Math.min(totalPages-1, p+1))} disabled={page>=totalPages-1}>Siguiente</Button>
+            </div>
           </div>
         </div>
       </div>
@@ -354,25 +362,25 @@ export default function App() {
         {/* Sidebar */}
         <aside className="col-span-12 lg:col-span-3 xl:col-span-2">
           <nav className="space-y-2">
-            <Button variant="secondary" className="w-full justify-start rounded-2xl bg-primary-50 text-primary-700" onClick={()=> { location.hash = '#/'; }}><LayoutDashboard className="mr-2 h-4 w-4"/>Dashboard</Button>
+            <Button
+              variant="secondary"
+              className={"w-full justify-start rounded-2xl " + (route === '#/' ? 'bg-primary-50 text-primary-700' : '')}
+              onClick={()=> { location.hash = '#/'; }}
+            ><LayoutDashboard className="mr-2 h-4 w-4"/>Dashboard</Button>
+
+            <Button
+              variant="ghost"
+              className={"w-full justify-start rounded-2xl " + (route === '#/inventario' ? 'bg-primary-50 text-primary-700' : '')}
+              onClick={()=> { location.hash = '#/inventario'; }}
+            ><FileBarChart2 className="mr-2 h-4 w-4"/>Inventario</Button>
+
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><BarChart3 className="mr-2 h-4 w-4"/>Reportes</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><FileBarChart2 className="mr-2 h-4 w-4"/>Trazabilidad</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><ShieldCheck className="mr-2 h-4 w-4"/>Seguridad</Button>
             <Button variant="ghost" className="w-full justify-start rounded-2xl"><Settings className="mr-2 h-4 w-4"/>Configuración</Button>
-            <Button variant="ghost" className="w-full justify-start rounded-2xl" onClick={()=> { location.hash = '#/inventario'; }}><FileBarChart2 className="mr-2 h-4 w-4"/>Inventario</Button>
           </nav>
 
-          {/* Inventario rápido debajo de Dashboard */}
-          <div className="mt-4">
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Inventario (rápido)</CardTitle></CardHeader>
-              <CardContent className="p-0">
-                <div className="h-56 overflow-auto p-3">
-                  <InventorySection parts={PARTS} />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          
 
           <Separator className="my-6" />
 
